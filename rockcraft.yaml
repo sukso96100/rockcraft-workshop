@@ -9,6 +9,26 @@ description: |
 platforms: # the platforms this rock should be built on and run on
     amd64:
 
+services:
+    weather-webapi:
+        override: replace
+        startup: enabled
+        command: dotnet rockcraft-workshop.dll
+
 parts:
     weather-webapi:
         plugin: nil
+        source-type: local
+        source: .
+        overlay-packages:
+            - dotnet-sdk-8.0
+        stage-packages:
+            - aspnetcore-runtime-8.0
+        override-build: |
+            craftctl default
+            dotnet --info
+            dotnet restore
+            dotnet build 
+            dotnet publish -c Release -o ${CRAFT_PART_INSTALL}/
+
+
