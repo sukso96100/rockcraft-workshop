@@ -9,6 +9,9 @@ description: |
 platforms: # the platforms this rock should be built on and run on
     amd64:
 
+environment:
+    ASPNETCORE_URLS: http://0.0.0.0:8080
+
 services:
     weather-webapi:
         override: replace
@@ -20,13 +23,14 @@ parts:
         plugin: nil
         source-type: local
         source: .
-        overlay-packages:
+        build-environment:
+            - PATH: "/usr/bin:${PATH}"
+        build-packages:
             - dotnet-sdk-8.0
         stage-packages:
             - aspnetcore-runtime-8.0
         override-build: |
             craftctl default
-            dotnet --info
             dotnet restore
             dotnet build 
             dotnet publish -c Release -o ${CRAFT_PART_INSTALL}/
