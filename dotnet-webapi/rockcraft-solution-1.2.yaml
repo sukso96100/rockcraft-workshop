@@ -1,0 +1,35 @@
+name: weather-webapi
+# see https://documentation.ubuntu.com/rockcraft/en/stable/explanation/bases/
+# for more information about bases and using 'bare' bases for chiselled rocks
+base: bare # the base environment for this rock
+build-base: ubuntu@24.04
+version: '0.2' # just for humans. Semantic versioning is recommended
+summary: Sample Weather Web API ASP.NET Core App # 79 char long summary
+description: |
+    This is a simple ASP.NET Core Web API App that returns some randome Weather forecast data. - Code Generated with .Net template 
+platforms: # the platforms this rock should be built on and run on
+    amd64:
+
+environment:
+    ASPNETCORE_URLS: http://0.0.0.0:8080
+
+services:
+    weather-webapi:
+        override: replace
+        startup: enabled
+        command: dotnet rockcraft-workshop.dll
+
+parts:
+    weather-webapi:
+        plugin: dotnet
+        source-type: local
+        source: .
+        dotnet-build-configuration: Release
+        build-environment:
+            - PATH: "/usr/bin:${PATH}"
+        build-packages:
+            - dotnet-sdk-8.0
+        stage-packages:
+            - aspnetcore-runtime-8.0_libs
+
+
