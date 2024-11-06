@@ -23,7 +23,7 @@ package-repositories:
 
 
 parts:
-    python-workflow:
+    workflow-deps:
         plugin: python
         source-type: local
         source: .
@@ -38,5 +38,10 @@ parts:
         override-build: |
             ACCEPT_EULA=y apt install -y msodbcsql18
             craftctl default
+    workflow:
+        source: .
+        plugin: dump
+        organize:
+            '*.py': root/
 
 
