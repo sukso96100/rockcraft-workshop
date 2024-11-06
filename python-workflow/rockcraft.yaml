@@ -27,15 +27,16 @@ parts:
         plugin: python
         source-type: local
         source: .
-        build-environment:
-            - ACCEPT_EULA: "Y" #  ERROR: The EULA was not accepted. Installation aborted.
         build-packages:
             - python3-venv
-            - msodbcsql18
             - unixodbc-dev
         stage-packages:
             - python3-venv
+            - msodbcsql18
         python-requirements:
             - requirements.txt
+        override-build: |
+            ACCEPT_EULA=y apt install -y msodbcsql18
+            craftctl default
 
 
