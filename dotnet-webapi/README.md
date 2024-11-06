@@ -143,3 +143,38 @@ sudo docker run -p 8080:8080 weather-webapi:0.2
 ```
 
 JSON 데이터가 잘 반환 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-1.2.yaml`을 확인 해 보시기 바랍니다.
+
+## 두 컨테이너 비교하기
+
+컨테이너 이미지 크기와 이미지에 포함된 파일 구성을 비교 해 보겠습니다.
+
+먼저 `docker images` 명령으로, 이미지 크기를 비교 해 봅니다. 0.1이 실습 1.1에서 플러그인 및 Chisel 사용 없이 빌드 한 것, 0.2가 실습 1.2 에서 플러그인과 Chisel 및 bare base 사용하여 빌드한 것 입니다.
+```bash
+$ sudo docker images
+REPOSITORY       TAG       IMAGE ID       CREATED          SIZE
+weather-webapi   0.2       8c867c7046dd   54 minutes ago   157MB
+weather-webapi   0.1       eb75f2ffdcc9   2 weeks ago      222MB
+```
+
+컨테이너 이미지에 포함된 파일을 비고 해 보겠습니다. 이미지에서 실행한 컨테이너 목록을 조회하고, 각 컨테이너를 `tar` 파일로 내보내기한 후 비교 해 봅니다.
+
+먼저 `docker ps -a`로 컨테이너를 조회하고, `docker export <컨테이너 이름> > <원하는 파일명>.tar` 로 내보내기 합니다.
+
+```bash
+$ sudo docker ps -a
+CONTAINER ID   IMAGE                COMMAND                  CREATED             STATUS                         PORTS     NAMES
+3913939e3e8c   weather-webapi:0.2   "/usr/bin/pebble ent…"   48 minutes ago      Exited (0) 42 minutes ago                gifted_williams
+b9f7d3b048e1   weather-webapi:0.1   "/usr/bin/pebble ent…"   25 hours ago        Exited (0) 22 hours ago                  jolly_satoshi
+...
+```
+
+```bash
+sudo docker export gifted_williams >  weather-webapi-0.2.tar
+sudo docker export jolly_satoshi > weather-webapi-0.1.tar
+```
+
+아래 명령으로 `tar`파일 내부 파일 목록을 확인 합니다.
+```bash
+tar -tf weather-webapi-0.2.tar
+tar -tf weather-webapi-0.1.tar
+```
