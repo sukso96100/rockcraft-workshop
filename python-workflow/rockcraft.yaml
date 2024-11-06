@@ -1,7 +1,7 @@
 name: python-workflow
 # see https://documentation.ubuntu.com/rockcraft/en/stable/explanation/bases/
 # for more information about bases and using 'bare' bases for chiselled rocks
-base: ubuntu@22.04 # the base environment for this rock
+base: ubuntu@24.04 # the base environment for this rock
 version: '0.1' # just for humans. Semantic versioning is recommended
 summary: Single-line elevator pitch for your amazing rock # 79 char long summary
 description: |
@@ -14,11 +14,28 @@ platforms: # the platforms this rock should be built on and run on
 
 package-repositories:
     - type: apt
-      url: https://packages.microsoft.com/config/ubuntu/24.04/prod.list
+      url: https://packages.microsoft.com/ubuntu/24.04/prod
+      components: [main]
+      suites: [noble]
       key-id: BC528686B50D79E339D3721CEB3E94ADBE1229CF
       key-server: https://packages.microsoft.com/keys/microsoft.asc
+      priority: always
 
 
 parts:
-    my-part:
-        plugin: nil
+    python-workflow:
+        plugin: python
+        source-type: local
+        source: .
+        build-environment:
+            - ACCEPT_EULA: "Y" #  ERROR: The EULA was not accepted. Installation aborted.
+        build-packages:
+            - python3-venv
+            - msodbcsql18
+            - unixodbc-dev
+        stage-packages:
+            - python3-venv
+        python-requirements:
+            - requirements.txt
+
+
