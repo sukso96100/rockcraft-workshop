@@ -108,10 +108,13 @@ sudo rockcraft.skopeo --insecure-policy copy oci-archive:python-workflow_0.1_amd
 
 아래와 같은 명령을 실행하여 워크플로가 잘 실행 되는지 확인 합니다.
 ```bash
-sudo docker run python-workflow:0.1 exec python3 main.py
+export SRC_URL="https://raw.githubusercontent.com/canonical/rockcraft/refs/heads/main/schema/rockcraft.json"
+export USERNAME=<구분 가능한 임의의 사용자명으로 수정>
+export DB_CONN_STR="DRIVER={ODBC Driver 18 for SQL Server};SERVER=<DB서버 주소>;DATABASE=<접속할 DB이름>;UID=<DB계정 사용자명>;PWD=<DB계정 암호>"
+sudo docker run python-workflow:0.1 exec python3 main.py --src-url $SRC_URL --inserted-by $USERNAME --dest-sqlserver-connstr $DB_CONN_STR
 ```
 
-JSON 데이터가 잘 반환 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-2.1.yaml`을 확인 해 보시기 바랍니다.
+아래와 같은 로그가 출력 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-2.1.yaml`을 확인 해 보시기 바랍니다.
 
 ## 실습 2.2
 
