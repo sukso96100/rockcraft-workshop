@@ -33,11 +33,13 @@ parts:
         stage-packages:
             - python3-venv
             - msodbcsql18
+            - libgssapi-krb5-2
         python-requirements:
             - requirements.txt
         override-build: |
             ACCEPT_EULA=y apt install -y msodbcsql18
             craftctl default
+            ODBCINI=$CRAFT_PART_INSTALL/etc/odbcinst.ini ODBCSYSINI=$CRAFT_PART_INSTALL/etc odbcinst -i -d -f /opt/microsoft/msodbcsql18/etc/odbcinst.ini 
     workflow:
         source: .
         plugin: dump
