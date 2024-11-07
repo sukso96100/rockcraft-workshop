@@ -70,17 +70,19 @@ build-packages:
 stage-packages:
     - python3-venv
     - msodbcsql18
+    - libgssapi-krb5-2
 ```
 - `python-requirements`: Python 패키지 의존성 목록이 정의된 requirements.txt 파일 위치를 넣어 줍니다.
 ```yaml
 python-requirements:
    - requirements.txt
 ```
-- `override-build`: 앞서 설치하지 못한 `msodbcsql18`를 먼저 설치하고, 나머지 플러그인 등이 지정한 명령을 실행 하도록 `craftctl default`를 넣어 줍니다.
+- `override-build`: 앞서 설치하지 못한 `msodbcsql18`를 먼저 설치하고, 나머지 플러그인 등이 지정한 명령을 실행 하도록 `craftctl default`를 넣어 줍니다. 이후 ODBC 설치 구성도 빌드 단계에서 설치 영역에 생성 되도록 명령줄을 추가 합니다.
 ```yaml
 override-build: |
     ACCEPT_EULA=y apt install -y msodbcsql18
     craftctl default
+    ODBCINI=$CRAFT_PART_INSTALL/etc/odbcinst.ini ODBCSYSINI=$CRAFT_PART_INSTALL/etc odbcinst -i -d -f /opt/microsoft/msodbcsql18/etc/odbcinst.ini 
 ```
 
 `workflow` part는 아래와 같이 작성 합니다.
@@ -110,11 +112,20 @@ sudo rockcraft.skopeo --insecure-policy copy oci-archive:python-workflow_0.1_amd
 ```bash
 export SRC_URL="https://raw.githubusercontent.com/canonical/rockcraft/refs/heads/main/schema/rockcraft.json"
 export USERNAME=<구분 가능한 임의의 사용자명으로 수정>
-export DB_CONN_STR="DRIVER={ODBC Driver 18 for SQL Server};SERVER=<DB서버 주소>;DATABASE=<접속할 DB이름>;UID=<DB계정 사용자명>;PWD=<DB계정 암호>"
-sudo docker run python-workflow:0.1 exec python3 main.py --src-url $SRC_URL --inserted-by $USERNAME --dest-sqlserver-connstr $DB_CONN_STR
+export DB_CONN_STR='DRIVER={ODBC Driver 18 for SQL Server};SERVER=<DB서버 주소>;DATABASE=<접속할 DB이름>;UID=<DB계정 사용자명>;PWD=<DB계정 암호>'
+sudo docker run python-workflow:0.1 exec python3 main.py --src-url $SRC_URL --inserted-by $USERNAME --dest-sqlserver-connstr "${DB_CONN_STR}"
 ```
 
 아래와 같은 로그가 출력 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-2.1.yaml`을 확인 해 보시기 바랍니다.
+
+```bash
+https://raw.githubusercontent.com/canonical/rockcraft/refs/heads/main/schema/rockcraft.json
+youngbinhan
+Connecting to SQL Server.
+Inserting ETL Data.
+Inserted ETL Data ID : 2
+ETL Data inserted!
+```
 
 ## 실습 2.2
 
