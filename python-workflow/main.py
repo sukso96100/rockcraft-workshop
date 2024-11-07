@@ -1,6 +1,7 @@
 import argparse
 import requests
 import pyodbc
+import json 
 
 def main():
     parser = argparse.ArgumentParser(description="Data ETL Script")
@@ -11,6 +12,7 @@ def main():
     args = parser.parse_args()
 
     print(args.src_url)
+    print(args.inserted_by)
 
     res = requests.get(args.src_url)
     json_data = res.json()
@@ -31,7 +33,7 @@ def main():
     cursor.execute(
         SQL_STATEMENT,
         args.inserted_by,
-        json_data
+        json.dumps(json_data)
     )
     resultId = cursor.fetchval()
     print(f"Inserted ETL Data ID : {resultId}")
