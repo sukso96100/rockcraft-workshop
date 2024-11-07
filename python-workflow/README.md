@@ -15,33 +15,85 @@ rockcraft init
 - `summary`: 컨테이너 이미지에 대한 간략한 설명으로 교체
 - `description`: 컨테이너 이미지에 대한 자세한 설명으로 교체
 
-빌드 과정을 정의 해 보겠습니다. `parts` 에서 빌드 과정을 정의 합니다. `my-part` 를 `python-workflow`로 바꾸고 하위 속성을 아래와 같이 추가하여 빌드 과정을 정의 합니다.
+이번 실습에서는 컨테이너에 SQL Server 드라이버를 함께 포함해야 하는데, 해당 드라이버를 제공해는 패키지는 우분투 Main 저장소에서 제공되지 않습니다. 따라서 `package-repositories` 속성을 통해 Microsoft 에서 제공하는 패키지 저장소를 추가로 사용하도록 설정합니다.
 
-- `source-type`: 빌드에 사용할 소스 유형을 지정합니다. `local` 로 지정해 주세요.
-- `source`: 소스 위치 지정. 현재 디렉토리로 지정하기 위해 `.` 으로 입력합니다.
-- `build-environment`: 빌드 단계에서 사용할 환경변수 입니다. `PATH` 환경변수 지정을 위해 배열 항목으로 `PATH: "/usr/bin:${PATH}"`를 넣어줍니다.
-- `build-packages`: 빌드 환경에서 필요한 우분투 패키지 입니다. .NET 빌드에 필요한 패키지인 `dotnet-sdk-8.0`를 배열 항목으로 넣어줍니다.
-- `stage-packages`: 완성된 컨테이너에 포함되어 앱 실행시 필요한 우분투 패키지 입니다. .NET 런타임 패키지인 `aspnetcore-runtime-8.0`를 배열 항목으로 넣어줍니다.
-- `override-build`: 빌드 과정에서 실행할 명령어를 재정의 합니다. 아래와 같이 수정합니다.
+`platforms`, `parts` 속성 사이에, `package-repositories` 속성을 추가하고. 아래와 같이 하위 값을 넣어 Microsoft 에서 제공하는 우분투 패키지 저장소를 추가로 사용하도록 설정합니다. 각 속성을 설명하면 아래와 같습니다.
+
+- `type`: 패키지 저장소 유형 입니다. Ubuntu/Debian 패키지 저장소 (APT 저장소)이므로 `apt`로 지정 합니다.
+- `url`: 패키지 저장소 서버 주소 입니다.
+- `components`: 저장소에서 이용할 패키지 모음 유형입니다.
+- `suites`: 어떤 우분투 릴리즈(버전)용으로 만들어진 패키지를 이용할지 지정합니다. 24.04 LTS 용 패키지를 이용하므로 `noble`로 지정 하였습니다.
+- `key-id`: 패키지 저장소에서 저장소 메타데이터 및 패키지 서명에 사용하는 PGP키의 ID(16자리) 혹은 핑거프린트
+- `key-server`: `key-id`에 해당하는 PGP키를 불러올 수 있는 URL
+- `priority`: 패키지 저장소 사용 우선 순위 
+
 ```yaml
-override-build: |
-    craftctl default
-    dotnet restore
-    dotnet build 
-    dotnet publish -c Release -o ${CRAFT_PART_INSTALL}/
+platforms: # the platforms this rock should be built on and run on
+    amd64:
+
+package-repositories:
+    - type: apt
+      url: https://packages.microsoft.com/ubuntu/24.04/prod
+      components: [main]
+      suites: [noble]
+      key-id: BC528686B50D79E339D3721CEB3E94ADBE1229CF
+      key-server: https://packages.microsoft.com/keys/microsoft.asc
+      priority: always
+
+
+parts:
+    ...
 ```
 
-`plarform` 및 `parts` 사이에 아래 내용을 추가하여 컨테이너 환경변수와 내부에서 실행할 서비스 구성을 정의 합니다. 여기서 정의한 `services` 의 경우 추후 컨테이너 내부에서 [`pebble`](https://canonical-pebble.readthedocs-hosted.com/en/latest/) 에 의해 실행 됩니다. 
-
+빌드 과정을 정의 해 보겠습니다. `parts` 에서 빌드 과정을 정의 합니다. 이번에는 `workflow-deps` 및 `workflow` 두 가지 `parts`를 아래와 같은 형태로 작성 시작 해 봅시다.
 ```yaml
-environment:
-    ASPNETCORE_URLS: http://0.0.0.0:8080
+...
+parts:
+    workflow-deps:
+        ...
+    workflow:
+        ...
+...
+```
+`workflow-deps` part에는 아래와 같은 속성을 지정 해 줍니다.
+- `plugin`: `python` 플러그인으로 지정 합니다.
+- `source-type`: `local` 로 지정 합니다.
+- `source`: `.` - 현재 디렉토리로 지정 합니다.
+- `build-packages`: 두 가지 패키지를 빌드 단계에서 쓸 패키지로 넣어 줍니다. 실제로는 `msodbcsql18` 설치도 필요한데, 이 패키지는 설치 시 환경변수 `ACCEPT_EULA=Y` 전달이 필요하나, `build-packages` 속성으로 전달이 불가 하므로, `override-build`를 대신 활용 할 것입니다.
+```yaml
+build-packages:
+    - python3-venv
+    - unixodbc-dev
+```
+- `stage-packages`: 두 가지 패키지를 빌드 단계에서 쓸 패키지로 넣어 줍니다.
+```yaml
+stage-packages:
+    - python3-venv
+    - msodbcsql18
+```
+- `python-requirements`: Python 패키지 의존성 목록이 정의된 requirements.txt 파일 위치를 넣어 줍니다.
+```yaml
+python-requirements:
+   - requirements.txt
+```
+- `override-build`: 앞서 설치하지 못한 `msodbcsql18`를 먼저 설치하고, 나머지 플러그인 등이 지정한 명령을 실행 하도록 `craftctl default`를 넣어 줍니다.
+```yaml
+override-build: |
+    ACCEPT_EULA=y apt install -y msodbcsql18
+    craftctl default
+```
 
-services:
-    python-workflow:
-        override: replace
-        startup: enabled
-        command: dotnet rockcraft-workshop.dll
+`workflow` part는 아래와 같이 작성 합니다.
+- `plugin`: `dump` - 단순히 소스 파일을 Staging 영역에 복사 해 주는 플러그인 입니다.
+- `organize`: 빌드 영역의 파일을 Staging 영역에서는 어떻게 정리할 지 지정하는 구성 입니다. 여기서는 `*.py` 파일을 Staging 영역에 넣을 때 `/root/`에 넣도록 하였습니다.
+```yaml
+...
+workflow:
+    source: .
+    plugin: dump
+    organize:
+        '*.py': root/
+...
 ```
 
 Rock 을 빌드 해 보겠습니다. 아래 명령을 실행합니다.
@@ -54,12 +106,12 @@ rockcraft pack
 sudo rockcraft.skopeo --insecure-policy copy oci-archive:python-workflow_0.1_amd64.rock docker-daemon:python-workflow:0.1
 ```
 
-컨테이너를 로컬에서 실행하고, `http://localhost:8080/weatherforecast` 에 접속하여 잘 작동하는지 확인 해 봅니다.
+아래와 같은 명령을 실행하여 워크플로가 잘 실행 되는지 확인 합니다.
 ```bash
-sudo docker run -p 8080:8080 python-workflow:0.1
+sudo docker run python-workflow:0.1 exec python3 main.py
 ```
 
-JSON 데이터가 잘 반환 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-1.1.yaml`을 확인 해 보시기 바랍니다.
+JSON 데이터가 잘 반환 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-2.1.yaml`을 확인 해 보시기 바랍니다.
 
 ## 실습 2.2
 
