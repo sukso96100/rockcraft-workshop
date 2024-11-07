@@ -137,20 +137,51 @@ rockcraft init
 생성된 `rockcraft.yaml` 을 열고, 아래 값을 우선 수정 합니다.
 
 - `name`: `python-workflow` 로 수정
-- `base`: `bare` 로 수정: 컨테이너 이미지 베이스로 아무것도 없는 시스템을 사용 합니다.
-- `build-base`: `ubuntu@24.04` 로 지정하여, 빌드 시 Ubuntu 24.04 LTS 환경에서 수행 하도록 지정 합니다.
-- `version`: `0.2`로 지정
+- `base`: `ubuntu@24.04` 로 수정
+- `version`: `0.1`로 지정
 - `summary`: 컨테이너 이미지에 대한 간략한 설명으로 교체
 - `description`: 컨테이너 이미지에 대한 자세한 설명으로 교체
 
-빌드 과정을 정의 해 보겠습니다. `parts` 에서 빌드 과정을 정의 합니다. `my-part` 를 `python-workflow`로 바꾸고 하위 속성을 아래와 같이 추가하여 빌드 과정을 정의 합니다.
+이번 실습에서는 컨테이너에 SQL Server 드라이버를 함께 포함해야 하는데, 해당 드라이버를 제공해는 패키지는 우분투 Main 저장소에서 제공되지 않습니다. 따라서 `package-repositories` 속성을 통해 Microsoft 에서 제공하는 패키지 저장소를 추가로 사용하도록 설정합니다.
 
-- `plugin`: `dotnet` 플러그인을 사용하도록 지정합니다. 이 플러그인을 지정하여, 플러그인에서 .NET 앱 빌드에 필요한 구성을 자동으로 포함 시키도록 할 수 있습니다.
-- `source-type`: 빌드에 사용할 소스 유형을 지정합니다. `local` 로 지정해 주세요.
-- `source`: 소스 위치 지정. 현재 디렉토리로 지정하기 위해 `.` 으로 입력합니다.
-- `dotnet-build-configuration`: `Release`로 설정하여, .NET 앱 빌드 시 Release 구성으로 빌드 되도록 지정 합니다.
-- `build-environment`: 빌드 단계에서 사용할 환경변수 입니다. `PATH` 환경변수 지정을 위해 배열 항목으로 `PATH: "/usr/bin:${PATH}"`를 넣어줍니다.
-- `build-packages`: 빌드 환경에서 필요한 우분투 패키지 입니다. .NET 빌드에 필요한 패키지인 `dotnet-sdk-8.0`를 배열 항목으로 넣어줍니다.
+`platforms`, `parts` 속성 사이에, `package-repositories` 속성을 추가하고. 아래와 같이 하위 값을 넣어 Microsoft 에서 제공하는 우분투 패키지 저장소를 추가로 사용하도록 설정합니다. 각 속성을 설명하면 아래와 같습니다.
+
+- `type`: 패키지 저장소 유형 입니다. Ubuntu/Debian 패키지 저장소 (APT 저장소)이므로 `apt`로 지정 합니다.
+- `url`: 패키지 저장소 서버 주소 입니다.
+- `components`: 저장소에서 이용할 패키지 모음 유형입니다.
+- `suites`: 어떤 우분투 릴리즈(버전)용으로 만들어진 패키지를 이용할지 지정합니다. 24.04 LTS 용 패키지를 이용하므로 `noble`로 지정 하였습니다.
+- `key-id`: 패키지 저장소에서 저장소 메타데이터 및 패키지 서명에 사용하는 PGP키의 ID(16자리) 혹은 핑거프린트
+- `key-server`: `key-id`에 해당하는 PGP키를 불러올 수 있는 URL
+- `priority`: 패키지 저장소 사용 우선 순위 
+
+```yaml
+platforms: # the platforms this rock should be built on and run on
+    amd64:
+
+package-repositories:
+    - type: apt
+      url: https://packages.microsoft.com/ubuntu/24.04/prod
+      components: [main]
+      suites: [noble]
+      key-id: BC528686B50D79E339D3721CEB3E94ADBE1229CF
+      key-server: https://packages.microsoft.com/keys/microsoft.asc
+      priority: always
+
+
+parts:
+    ...
+```
+
+빌드 과정을 정의 해 보겠습니다. `parts` 에서 빌드 과정을 정의 합니다. 이번에는 `workflow-deps` 및 `workflow` 두 가지 `parts`를 아래와 같은 형태로 작성 시작 해 봅시다.
+```yaml
+...
+parts:
+    workflow-deps:
+        ...
+    workflow:
+        ...
+...
+```
 
 이번에 `stage-package`는 Rockcraft에 통합된 Chisel 기능으로 패키지의 필요한 파일만 포함되도록 지정 해 보겠습니다. 명령줄로 아래 명령을 실행하여 패키지의 Chisel Slice 정보를 확인 합니다.
 
