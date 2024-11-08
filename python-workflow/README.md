@@ -137,8 +137,9 @@ rockcraft init
 생성된 `rockcraft.yaml` 을 열고, 아래 값을 우선 수정 합니다.
 
 - `name`: `python-workflow` 로 수정
-- `base`: `ubuntu@24.04` 로 수정
-- `version`: `0.1`로 지정
+- `base`: `bare` 로 수정
+- `build-base`: `ubuntu@24.04` 로 수정
+- `version`: `0.2`로 지정
 - `summary`: 컨테이너 이미지에 대한 간략한 설명으로 교체
 - `description`: 컨테이너 이미지에 대한 자세한 설명으로 교체
 
@@ -183,63 +184,151 @@ parts:
 ...
 ```
 
-이번에 `stage-package`는 Rockcraft에 통합된 Chisel 기능으로 패키지의 필요한 파일만 포함되도록 지정 해 보겠습니다. 명령줄로 아래 명령을 실행하여 패키지의 Chisel Slice 정보를 확인 합니다.
+`workflow-deps` part에는 아래와 같은 속성을 지정 해 줍니다.
+- `plugin`: `python` 플러그인으로 지정 합니다.
+- `source-type`: `local` 로 지정 합니다.
+- `source`: `.` - 현재 디렉토리로 지정 합니다.
+- `build-packages`: 두 가지 패키지를 빌드 단계에서 쓸 패키지로 넣어 줍니다. 실제로는 `msodbcsql18` 설치도 필요한데, 이 패키지는 설치 시 환경변수 `ACCEPT_EULA=Y` 전달이 필요하나, `build-packages` 속성으로 전달이 불가 하므로, `override-build`를 대신 활용 할 것입니다.
+```yaml
+build-packages:
+    - python3-venv
+    - unixodbc-dev
+```
+
+- `stage-package` 에는 `msodbcsql18`, `python3.12-venv`, `libgssapi-krb5-2` 를 포함해야 합니다. 아래와 같은 몇가지 문제가 있습니다. 때문에 이번에 `stage-package`에는 `msodbcsql18`만 포함하고, `python3.12-venv`, `libgssapi-krb5-2`는 Chisel Slice 를 확인하여 `override-build` 단계에서 `chisel` 명령으로 직접 설치 진행 되도록 해 보겠습니다.
+    - `stage-packages` 에 Slice 된 패키지 이름과 일반 패키지를 섞을 수 없습니다. (예: 일반 패키지인 `msodbcsql18` 및 Chisel 처리된 패키지 Slice 인 `aspnetcore-runtime-8.0_libs` 를 동시에 포함 불가)
+    - 현재 Chisel 에서 Ubuntu Archive 에서 제공하는 패키지 이외 서드파티 (Third Party) 제공 패키지에 대한 Chiseling 은 지원하지 않습니다. (Slice 구성 직접 정의 해도 사용 불가)
+
+```yaml
+stage-packages:
+    - msodbcsql18
+```
+- `python-requirements`: Python 패키지 의존성 목록이 정의된 requirements.txt 파일 위치를 넣어 줍니다.
+```yaml
+python-requirements:
+   - requirements.txt
+```
+
+- `override-build`: 
+  - 앞서 `build-packages` 에서 설치하지 못한 `msodbcsql18`를 먼저 설치하고
+  - 이후 ODBC 설치 구성도 빌드 단계에서 설치 영역에 생성 되도록 명령줄을 추가 합니다.
+  - Chisel Slice 설치 명령줄(`chisel cut`)도 넣어 줍니다. (Slice 이름 조회하여 수정하는 것은 다음 단계에서 진행합니다.)
+  - 나머지 플러그인 등이 지정한 명령을 실행 하도록 `craftctl default`를 넣어 줍니다. 
+```yaml
+override-build: |
+    ACCEPT_EULA=y apt install -y msodbcsql18
+    chisel cut --root ${CRAFT_PART_INSTALL} <Chisel Slice 이름 나열>
+    ODBCINI=$CRAFT_PART_INSTALL/etc/odbcinst.ini ODBCSYSINI=$CRAFT_PART_INSTALL/etc odbcinst -i -d -f /opt/microsoft/msodbcsql18/etc/odbcinst.ini 
+    craftctl default
+```
+
+`chisel cut` 명령줄에 전달할 패키지인 `python3.12-venv`, `libgssapi-krb5-2` 에 대해 Chisel Slice 정보를 확인 해 봅니다.
 
 ```bash
-chisel info aspnetcore-runtime-8.0
+chisel info python3.12-venv libgssapi-krb5-2
 ```
 
 아래와 같이 Chisel Slice 정보가 조회 됩니다. 
 ```bash
-2024/11/06 14:39:23 Consulting release repository...
-2024/11/06 14:39:23 Cached ubuntu-24.04 release is still up-to-date.
-2024/11/06 14:39:23 Processing ubuntu-24.04 release...
-package: aspnetcore-runtime-8.0
+2024/11/08 14:43:22 Consulting release repository...
+2024/11/08 14:43:23 Cached ubuntu-24.04 release is still up-to-date.
+2024/11/08 14:43:23 Processing ubuntu-24.04 release...
+package: python3.12-venv
 archive: ubuntu
 slices:
     copyright:
         contents:
-            /usr/share/doc/aspnetcore-runtime-8.0/copyright: {}
+            /usr/share/doc/python3.12-venv: {symlink: /usr/share/doc/python3.12}
+    ensurepip:
+        essential:
+            - python3.12-venv_copyright
+            - python3-pip-whl_wheels
+            - python3-setuptools-whl_wheels
+            - python3.12_standard
+        contents:
+            /usr/lib/python3.12/ensurepip/*.py: {}
+---
+package: libgssapi-krb5-2
+archive: ubuntu
+slices:
+    copyright:
+        contents:
+            /usr/share/doc/libgssapi-krb5-2/copyright: {}
     libs:
         essential:
-            - aspnetcore-runtime-8.0_copyright
-            - dotnet-runtime-8.0_libs
+            - libgssapi-krb5-2_copyright
+            - libc6_libs
+            - libcom-err2_libs
+            - libk5crypto3_libs
+            - libkrb5-3_libs
+            - libkrb5support0_libs
         contents:
-            /usr/lib/dotnet/shared/Microsoft.AspNetCore.App/8.0*/**: {}
+            /usr/lib/*-linux-*/libgssapi_krb5.so.2*: {}
 ```
-우리는 `libs` Slice에 해당하는 부분만 필요합니다. 이런 경우, `stage-package` 넣을 패키지 이름 끝에 `_(Slice 이름)`을 붙여 지정이 가능합니다. 
-`aspnetcore-runtime-8.0` 패키지의 `libs` Slice만 필요하므로, `stage-package` 에 `aspnetcore-runtime-8.0_libs`를 넣어 줍니다.
 
-앞선 실습에서 설정한 것과 동일하게, `plarform` 및 `parts` 사이에 아래 내용을 추가하여 컨테이너 환경변수와 내부에서 실행할 서비스 구성을 정의 합니다. 여기서 정의한 `services` 의 경우 추후 컨테이너 내부에서 [`pebble`](https://canonical-pebble.readthedocs-hosted.com/en/latest/) 에 의해 실행 됩니다. 
+출력된 결과를 참고하여, `python3.12-venv` 에 대해서는 `ensurepip`, `libgssapi-krb5-2`에 대해서는 `libs` Slice 를 설치 하도록 수정 해 보겠습니다. 그러면 `override-build`를 아래와 같이 수정이 가능합니다.
+```yaml
+override-build: |
+    ACCEPT_EULA=y apt install -y msodbcsql18
+    chisel cut --root ${CRAFT_PART_INSTALL} python3.12-venv_ensurepip libgssapi-krb5-2_libs # 수정된 명령줄
+    ODBCINI=$CRAFT_PART_INSTALL/etc/odbcinst.ini ODBCSYSINI=$CRAFT_PART_INSTALL/etc odbcinst -i -d -f /opt/microsoft/msodbcsql18/etc/odbcinst.ini 
+    craftctl default
+```
+
+`workflow` part는 아래와 같이 작성 합니다.
+- `plugin`: `dump` - 단순히 소스 파일을 Staging 영역에 복사 해 주는 플러그인 입니다.
+```yaml
+...
+workflow:
+    source: .
+    plugin: dump
+...
+```
+
+이번에는 환경변수도 컨테이너 이미지에 추가로 설정 해 줍니다. `base`가 `bare`여서 이미지 베이스가 정말 아무것도 없는 것이기 때문에, 일반적으로 시스템에 포함되는 환경변수도 없는 경우가 있어 설정이 필요합니다. 이번 실습에서는 `PYTHONPATH`를 설정 해 주겠습니다. 아래와 같이 `parts`, `name`등과 같은 최상위 단계 속성으로 `environment` 속성을 추가하고 아래와 같이 지정 하여 requirements.txt 에서 설치한 Python 패키지를 정상적으로 컨테이너 내부에서 불러올 수 있도록 합니다.
 
 ```yaml
+
+package-repositories:
+    ...
+
 environment:
-    ASPNETCORE_URLS: http://0.0.0.0:8080
+    PYTHONPATH: /usr/lib/python3.12/site-packages
 
-services:
-    python-workflow:
-        override: replace
-        startup: enabled
-        command: dotnet rockcraft-workshop.dll
+parts:
+    workflow-deps:
+        ...
+    workflow:
+        ...
 ```
-
 
 Rock 을 빌드 해 보겠습니다. 아래 명령을 실행합니다.
 ```bash
 rockcraft pack
 ```
-
 빌드된 `*.rock` 파일을 Docker 에 이미지로 불러옵니다.
 ```bash
 sudo rockcraft.skopeo --insecure-policy copy oci-archive:python-workflow_0.2_amd64.rock docker-daemon:python-workflow:0.2
 ```
 
-컨테이너를 로컬에서 실행하고, `http://localhost:8080/weatherforecast` 에 접속하여 잘 작동하는지 확인 해 봅니다.
+아래와 같은 명령을 실행하여 워크플로가 잘 실행 되는지 확인 합니다.
 ```bash
-sudo docker run -p 8080:8080 python-workflow:0.2
+export SRC_URL="https://raw.githubusercontent.com/canonical/rockcraft/refs/heads/main/schema/rockcraft.json"
+export USERNAME=<구분 가능한 임의의 사용자명으로 수정>
+export DB_CONN_STR='DRIVER={ODBC Driver 18 for SQL Server};SERVER=<DB서버 주소>;DATABASE=<접속할 DB이름>;UID=<DB계정 사용자명>;PWD=<DB계정 암호>'
+sudo docker run python-workflow:0.1 exec python3 main.py --src-url $SRC_URL --inserted-by $USERNAME --dest-sqlserver-connstr "${DB_CONN_STR}"
 ```
 
-JSON 데이터가 잘 반환 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-1.2.yaml`을 확인 해 보시기 바랍니다.
+아래와 같은 로그가 출력 된다면, 빌드한 Rock이 잘 작동하는 것 입니다. `rockcraft.yaml` 작성이 어렵다면, 완성된 예제 파일인 `rockcraft-solution-2.2.yaml`을 확인 해 보시기 바랍니다.
+
+```bash
+https://raw.githubusercontent.com/canonical/rockcraft/refs/heads/main/schema/rockcraft.json
+youngbinhan
+Connecting to SQL Server.
+Inserting ETL Data.
+Inserted ETL Data ID : 2
+ETL Data inserted!
+```
 
 ## 두 컨테이너 비교하기
 
