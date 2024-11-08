@@ -22,6 +22,8 @@ package-repositories:
       key-server: https://packages.microsoft.com/keys/microsoft.asc
       priority: always
 
+environment:
+    PYTHONPATH: /usr/lib/python3.12/site-packages
 
 parts:
     workflow-deps:
@@ -32,19 +34,17 @@ parts:
             - python3-venv
             - unixodbc-dev
         stage-packages:
-            - python3.12-venv_ensurepip
             - msodbcsql18
-            - libgssapi-krb5-2_libs
         python-requirements:
             - requirements.txt
         override-build: |
             ACCEPT_EULA=y apt install -y msodbcsql18
-            craftctl default
+            chisel cut --root ${CRAFT_PART_INSTALL} python3.12-venv_ensurepip libgssapi-krb5-2_libs
             ODBCINI=$CRAFT_PART_INSTALL/etc/odbcinst.ini ODBCSYSINI=$CRAFT_PART_INSTALL/etc odbcinst -i -d -f /opt/microsoft/msodbcsql18/etc/odbcinst.ini 
+            craftctl default
+            
     workflow:
         source: .
         plugin: dump
-        organize:
-            '*.py': root/
 
 
