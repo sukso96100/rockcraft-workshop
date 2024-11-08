@@ -361,6 +361,6 @@ sudo docker export jolly_satoshi > python-workflow-0.1.tar
 
 아래 명령으로 `tar`파일 내부 파일 목록을 확인 합니다.
 ```bash
-tar -tf python-workflow-0.2.tar
-tar -tf python-workflow-0.1.tar
+tar -tvf python-workflow-0.2.tar
+tar -tvf python-workflow-0.1.tar
 ```
