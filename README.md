@@ -36,5 +36,5 @@ https://documentation.ubuntu.com/lxd/en/latest/howto/network_bridge_firewalld/#p
 
 ### 워크샵 GitHub 저장소 로컬에 복제 해 두기
 ```bash
-git clone https://github.com/ahnlabcloudmatelabs/rockcraft-workshop 
+git clone https://github.com/sukso96100/rockcraft-workshop
 ```
